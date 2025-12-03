@@ -41,16 +41,12 @@ export default function ChatWidget() {
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>(QUICK_REPLY_SUGGESTIONS)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const [unreadCount, setUnreadCount] = useState(0)
 
   // Auto-scroll to latest message
   useEffect(() => {
-    if (scrollRef.current) {
-      setTimeout(() => {
-        scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-      }, 100)
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   // Initialize with welcome message
@@ -227,7 +223,7 @@ export default function ChatWidget() {
 
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-4 bg-gray-50">
-        <div className="space-y-4" ref={scrollRef}>
+        <div className="space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -313,6 +309,7 @@ export default function ChatWidget() {
               ))}
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
