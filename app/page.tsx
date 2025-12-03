@@ -148,7 +148,7 @@ export default function ChatWidget() {
 
       const data = await response.json()
 
-      // Add agent response with robust parsing
+      // Add agent response with robust parsing for different agent formats
       if (data.success) {
         let responseText = ''
         let followups: string[] = []
@@ -157,15 +157,29 @@ export default function ChatWidget() {
         if (typeof data.response === 'string') {
           responseText = data.response
         } else if (data.response && typeof data.response === 'object') {
-          // Try to extract the response field from nested object
+          // Support Agent format: data.response.response
           responseText = data.response.response
-            ?? data.response.message
-            ?? data.response.text
-            ?? (typeof data.response === 'string' ? data.response : '')
 
-          // Extract suggested follow-ups if available
+          // Sales Agent format: data.response.sales_guidance.main_response
+          if (!responseText && data.response.sales_guidance?.main_response) {
+            responseText = data.response.sales_guidance.main_response
+          }
+
+          // Fallback: data.response.message or data.response.text
+          if (!responseText) {
+            responseText = data.response.message
+              ?? data.response.text
+              ?? (typeof data.response === 'string' ? data.response : '')
+          }
+
+          // Extract suggested follow-ups - Support Agent format
           if (data.response.suggested_followups && Array.isArray(data.response.suggested_followups)) {
-            followups = data.response.suggested_followups
+            followups = data.response.suggested_followups.filter((q: string) => q && q.trim().length > 0)
+          }
+
+          // Extract suggested follow-ups - Sales Agent format
+          if (!followups.length && data.response.sales_guidance?.suggested_questions && Array.isArray(data.response.sales_guidance.suggested_questions)) {
+            followups = data.response.sales_guidance.suggested_questions.filter((q: string) => q && q.trim().length > 0)
           }
         }
 
