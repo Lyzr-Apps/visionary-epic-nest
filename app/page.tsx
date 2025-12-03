@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react'
 import { MessageCircle, Send, X, Minus, ThumbsUp, ThumbsDown, Loader2, HelpCircle, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Message {
@@ -149,15 +148,35 @@ export default function ChatWidget() {
 
       const data = await response.json()
 
-      // Add agent response
-      if (data.success && data.response) {
-        const agentResponse: AgentResponse = data.response
+      // Add agent response with robust parsing
+      if (data.success) {
+        let responseText = ''
+        let followups: string[] = []
+
+        // Handle different response formats
+        if (typeof data.response === 'string') {
+          responseText = data.response
+        } else if (data.response && typeof data.response === 'object') {
+          // Try to extract the response field from nested object
+          responseText = data.response.response
+            ?? data.response.message
+            ?? data.response.text
+            ?? (typeof data.response === 'string' ? data.response : '')
+
+          // Extract suggested follow-ups if available
+          if (data.response.suggested_followups && Array.isArray(data.response.suggested_followups)) {
+            followups = data.response.suggested_followups
+          }
+        }
+
+        // Fallback if we couldn't extract text
+        if (!responseText || responseText.trim().length === 0) {
+          responseText = "I understood your question. Please feel free to ask follow-up questions if you need more information."
+        }
 
         const agentMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: typeof agentResponse === 'string'
-            ? agentResponse
-            : agentResponse.response || JSON.stringify(agentResponse),
+          text: responseText.trim(),
           sender: 'agent',
           timestamp: new Date(),
           feedback: null
@@ -166,14 +185,14 @@ export default function ChatWidget() {
         setMessages(prev => [...prev, agentMessage])
 
         // Set suggested follow-ups if available
-        if (agentResponse.suggested_followups && Array.isArray(agentResponse.suggested_followups)) {
-          setSuggestedQuestions(agentResponse.suggested_followups)
+        if (followups.length > 0) {
+          setSuggestedQuestions(followups)
         }
       } else {
         // Handle error response
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: data.response?.response || "I'm having trouble processing your question. Please try again.",
+          text: "I'm having trouble processing your question. Please try again.",
           sender: 'agent',
           timestamp: new Date(),
           feedback: null
@@ -287,7 +306,7 @@ export default function ChatWidget() {
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
         <div className="space-y-4">
           {messages.map((message) => (
             <div
@@ -376,7 +395,7 @@ export default function ChatWidget() {
           )}
           <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input Area */}
       <div className="border-t border-gray-200 p-4 bg-white">
