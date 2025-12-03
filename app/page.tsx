@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MessageCircle, Send, X, Minus, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react'
+import { MessageCircle, Send, X, Minus, ThumbsUp, ThumbsDown, Loader2, HelpCircle, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Message {
   id: string
@@ -26,42 +27,91 @@ interface AgentResponse {
   }
 }
 
-const QUICK_REPLY_SUGGESTIONS = [
-  'What is Amadeo?',
-  'What are the key features?',
-  'How does integration work?',
-  'What use cases are supported?'
-]
+const SUPPORT_AGENT_CONFIG = {
+  id: '693050ee2bb6b2ddb363e3cb',
+  name: 'Support',
+  title: 'Amadeo Support',
+  subtitle: 'Customer Support',
+  icon: HelpCircle,
+  welcomeMessage: 'Hi there! I\'m Amadeo Support Assistant. I\'m here to answer any questions about Amadeo Banking AI Agent. You can ask me about features, capabilities, integrations, pricing, or use cases. What would you like to know?',
+  suggestions: [
+    'What is Amadeo?',
+    'What are the key features?',
+    'How does integration work?',
+    'What use cases are supported?'
+  ]
+}
 
-const SAMPLE_WELCOME_MESSAGE = 'Hi there! I\'m Amadeo Support Assistant. I\'m here to answer any questions about Amadeo Banking AI Agent. You can ask me about features, capabilities, integrations, pricing, or use cases. What would you like to know?'
+const SALES_AGENT_CONFIG = {
+  id: '693053006faee4d469e8a424',
+  name: 'Sales',
+  title: 'Amadeo Sales Copilot',
+  subtitle: 'Sales Development',
+  icon: TrendingUp,
+  welcomeMessage: 'Welcome! I\'m your Amadeo Sales Copilot. I\'m here to help you close more deals by providing sales strategies, objection handling, competitive positioning, and pitch preparation. How can I assist with your sales efforts today?',
+  suggestions: [
+    'How do I pitch Amadeo to a prospect?',
+    'How do I handle common objections?',
+    'What\'s Amadeo\'s competitive advantage?',
+    'Can you help me prepare a sales deck?'
+  ]
+}
 
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [activeAgent, setActiveAgent] = useState<'support' | 'sales'>('support')
+  const [supportMessages, setSupportMessages] = useState<Message[]>([])
+  const [salesMessages, setSalesMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>(QUICK_REPLY_SUGGESTIONS)
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>(SUPPORT_AGENT_CONFIG.suggestions)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [unreadCount, setUnreadCount] = useState(0)
+
+  // Get current messages and config based on active agent
+  const currentConfig = activeAgent === 'support' ? SUPPORT_AGENT_CONFIG : SALES_AGENT_CONFIG
+  const messages = activeAgent === 'support' ? supportMessages : salesMessages
+  const setMessages = activeAgent === 'support' ? setSupportMessages : setSalesMessages
 
   // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Initialize with welcome message
+  // Initialize with welcome message when opening or switching agents
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([
         {
           id: '1',
-          text: SAMPLE_WELCOME_MESSAGE,
+          text: currentConfig.welcomeMessage,
+          sender: 'agent',
+          timestamp: new Date()
+        }
+      ])
+      setSuggestedQuestions(currentConfig.suggestions)
+    }
+  }, [isOpen, activeAgent])
+
+  // Handle agent switching
+  const handleAgentSwitch = (agent: 'support' | 'sales') => {
+    setActiveAgent(agent)
+    const targetMessages = agent === 'support' ? supportMessages : salesMessages
+    const config = agent === 'support' ? SUPPORT_AGENT_CONFIG : SALES_AGENT_CONFIG
+
+    // Initialize welcome message if no messages in target agent
+    if (targetMessages.length === 0) {
+      setMessages([
+        {
+          id: '1',
+          text: config.welcomeMessage,
           sender: 'agent',
           timestamp: new Date()
         }
       ])
     }
-  }, [isOpen])
+    setSuggestedQuestions(config.suggestions)
+  }
 
   // Reset unread count when opening
   useEffect(() => {
@@ -87,13 +137,13 @@ export default function ChatWidget() {
     setSuggestedQuestions([])
 
     try {
-      // Call the Amadeo Support Agent API
+      // Call the appropriate agent API based on active agent
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: messageText,
-          agent_id: '693050ee2bb6b2ddb363e3cb'
+          agent_id: currentConfig.id
         })
       })
 
@@ -190,35 +240,50 @@ export default function ChatWidget() {
   return (
     <div className="fixed bottom-6 right-6 z-40 w-96 max-h-[600px] flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-            <MessageCircle size={20} />
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+              {currentConfig.icon && <currentConfig.icon size={20} />}
+            </div>
+            <div>
+              <h2 className="font-semibold text-white">{currentConfig.title}</h2>
+              <p className="text-xs text-blue-100">{currentConfig.subtitle}</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-semibold text-white">Amadeo Support</h2>
-            <p className="text-xs text-blue-100">Always here to help</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsOpen(false)}
+              className="hover:bg-blue-500 p-1.5 rounded transition"
+              aria-label="Minimize chat"
+            >
+              <Minus size={18} />
+            </button>
+            <button
+              onClick={() => {
+                setIsOpen(false)
+                setSupportMessages([])
+                setSalesMessages([])
+              }}
+              className="hover:bg-blue-500 p-1.5 rounded transition"
+              aria-label="Close chat"
+            >
+              <X size={18} />
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsOpen(false)}
-            className="hover:bg-blue-500 p-1.5 rounded transition"
-            aria-label="Minimize chat"
-          >
-            <Minus size={18} />
-          </button>
-          <button
-            onClick={() => {
-              setIsOpen(false)
-              setMessages([])
-            }}
-            className="hover:bg-blue-500 p-1.5 rounded transition"
-            aria-label="Close chat"
-          >
-            <X size={18} />
-          </button>
-        </div>
+
+        {/* Agent Tabs */}
+        <Tabs value={activeAgent} onValueChange={(value) => handleAgentSwitch(value as 'support' | 'sales')} className="w-full">
+          <TabsList className="w-full bg-blue-500 bg-opacity-40 border-0">
+            <TabsTrigger value="support" className="flex-1 text-xs data-[state=active]:bg-blue-400 data-[state=active]:text-white text-blue-100">
+              Support
+            </TabsTrigger>
+            <TabsTrigger value="sales" className="flex-1 text-xs data-[state=active]:bg-blue-400 data-[state=active]:text-white text-blue-100">
+              Sales Copilot
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Messages Area */}
